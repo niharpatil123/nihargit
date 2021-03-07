@@ -8,7 +8,7 @@ pipeline {
   stages {
     stage('Cloning Git') {
       steps {
-		  git([url: 'https://github.com/niharpatil123/nihargit.git', branch: 'main', passwordVariable: 'Chakuli@11', usernameVariable: 'niharpatil123' ])
+		  git([url: 'https://github.com/niharpatil123/nihargit.git', branch: 'main', credentialsId: '123123' ])
 
       }
     }
