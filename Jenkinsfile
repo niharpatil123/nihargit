@@ -1,7 +1,7 @@
 pipeline {
   environment {
     imagename = "niharpatil123/nihargit.git"
-    registryCredential = 'docker-hub'
+    registryCredential = 'nihardocker'
     dockerImage = ''
   }
   agent any
