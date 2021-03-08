@@ -1,6 +1,6 @@
 pipeline {
   environment {
-    imagename = "niharpatil123/nihargit.git"
+    imagename = "npdockerImage"
     registryCredential = 'nihardocker'
     dockerImage = ''
   }
