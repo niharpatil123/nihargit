@@ -1,6 +1,6 @@
 pipeline {
   environment {
-    imagename = "npdockerImage"
+    imagename = "npdockerimage"
     registryCredential = 'nihardocker'
     dockerImage = ''
   }
