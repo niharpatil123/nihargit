@@ -74,6 +74,8 @@ class AccessInitiator:
         #kiteConn.holdings()
         #print(kiteConn.holdings())
         print("Get Token Completed Successfully")
+        return dataObj['access_token']
 
 #ai = AccessInitiator()
-#ai.getAccessToken()
+#at = ai.getAccessToken()
+#print("New Access Token: ",at)
