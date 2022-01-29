@@ -33,7 +33,7 @@ class CalculateGreeks:
         while d.weekday() != 3:
             d = d + timedelta(days=1)
         #print("Next Expiry Date: ",d)
-        dayStr = str(d.strftime("%y")) + str(d.month) + str(d.day)
+        dayStr = str(d.strftime("%y")) + str(d.month) + str(d.day).zfill(2)
         #print("Next Expiry Date String: ", dayStr)
         #monthdays = calendar.monthrange(d.year, d.month)[1]
         #print(monthdays)
@@ -56,7 +56,10 @@ class CalculateGreeks:
         while d.weekday() != 3:
             d = d + timedelta(days=1)
             i = i+1
-        #print("Days to Expiry: ",i)
+        #to manage last day of expiry. TO avoid divide by zero
+        if (i==0):
+            i = 0.00001
+        # print("Days to Expiry: ",i)
         return i
 
     #Get Nifty Spot price
@@ -65,71 +68,123 @@ class CalculateGreeks:
         self.bnHStrike = round(self.bnSpot/500)*500
         print("Banknifty Strike: ",self.bnHStrike)
 
-    def genStraddleBase(self):
-        h = 0
-
-    def getHedgePositions(self):
-        h = 0
-
-    def exitAllPositions(self):
-        h = 0
-
     def getSpot(self,conn):
         #interestRate = 4
         #symbolName = "BANKNIFTY"
         #bnCurrPrice = conn.quote("NSE:BANKNIFTY")
         bnOhlc = conn.ohlc(self.symbolName)
         self.bnSpot = bnOhlc[self.symbolName]['last_price']
-        self.bnSpot = 37578
+        #self.bnSpot = 37578
         print("Banknifty Spot: ",self.bnSpot)
+        return self.bnSpot
 
-    def setSellStrike(self):
+    def setSellStrike(self,bnSpot):
         #Decide the strike price
         self.bnStrike = round(self.bnSpot/100)*100
         print("Banknifty Strike: ",self.bnStrike)
         #hardcoding Strike for time being
         #bnStrike = 38400
+        return self.bnStrike
 
-    def getNetDelta(self, conn,CallPosition,PutPosition):
+    def getNetDelta(self,conn,CallPosition,CallStrike,PutPosition,PutStrike):
         #Generate Straddle Symbol Names
-        self.callSymbol = "NFO:BANKNIFTY" + self.nextExpiryDate() + str(self.bnStrike) + "CE"
-        self.putSymbol = "NFO:BANKNIFTY" + self.nextExpiryDate() + str(self.bnStrike) + "PE"
+        #self.callSymbol = "NFO:BANKNIFTY" + self.nextExpiryDate() + str(self.bnStrike) + "CE"
+        #self.putSymbol = "NFO:BANKNIFTY" + self.nextExpiryDate() + str(self.bnStrike) + "PE"
         #self.callSymbol = "NFO:BANKNIFTY" + '22JAN' + str(self.bnStrike) + "CE"
         #self.putSymbol = "NFO:BANKNIFTY" + '22JAN' + str(self.bnStrike) + "PE"
         #print("Banknifty Call Instrument: ",self.callSymbol)
         #print("Banknifty Put Instrument: ",self.putSymbol)
         positionList = []
-        positionList.append(self.callSymbol)
-        positionList.append(self.putSymbol)
-        print(positionList)
-        currPrices = conn.quote(positionList)
+        positionList.append(CallPosition)
+        positionList.append(PutPosition)
+        #print(positionList)
+        #currPrices = conn.quote(positionList)
         #print(currPrices)
-        callOhlc = conn.ohlc(self.callSymbol)
-        callLtp = callOhlc[self.callSymbol]['last_price']
+        callOhlc = conn.ohlc(CallPosition)
+        callLtp = callOhlc[CallPosition]['last_price']
         #print("Call LTP: ",callLtp)
-        putOhlc = conn.ohlc(self.putSymbol)
-        putLtp = putOhlc[self.putSymbol]['last_price']
-        print("Call LTP: ",callLtp,"Put LTP: ",putLtp)
+        putOhlc = conn.ohlc(PutPosition)
+        putLtp = putOhlc[PutPosition]['last_price']
+        #print("Call LTP: ",callLtp,"Put LTP: ",putLtp)
         #Calculate the greeks
         #claculate the Call volatility first
-        voltyC = mibian.BS([self.bnSpot,self.bnStrike,self.interestRate,self.daysToExpiry()],callPrice=callLtp)
+        voltyC = mibian.BS([self.bnSpot,CallStrike,self.interestRate,self.daysToExpiry()],callPrice=callLtp)
         #print(voltyC.impliedVolatility)
         newVoltyC = float("{:.2f}".format(voltyC.impliedVolatility))
         #print("CallVolatility: ",newVoltyC)
         #Calculate the put volatility
-        voltyP = mibian.BS([self.bnSpot,self.bnStrike,self.interestRate,self.daysToExpiry()],putPrice=putLtp)
+        voltyP = mibian.BS([self.bnSpot,PutStrike,self.interestRate,self.daysToExpiry()],putPrice=putLtp)
         #print(voltyP.impliedVolatility)
         newVoltyP = float("{:.2f}".format(voltyP.impliedVolatility))
         #print("PutVolatility: ",newVoltyP)
         #Calculate the Delta
-        c = mibian.BS([self.bnSpot,self.bnStrike,self.interestRate,self.daysToExpiry()],volatility=newVoltyC)
-        print("Call Delta: ",c.callDelta)
+        c = mibian.BS([self.bnSpot,CallStrike,self.interestRate,self.daysToExpiry()],volatility=newVoltyC)
+        #print("Call Delta: ",c.callDelta)
         #print("Call Theta: ",c.callTheta)
-        p = mibian.BS([self.bnSpot,self.bnStrike,self.interestRate,self.daysToExpiry()],volatility=newVoltyP)
-        print("Put Delta: ",p.putDelta)
+        p = mibian.BS([self.bnSpot,PutStrike,self.interestRate,self.daysToExpiry()],volatility=newVoltyP)
+        #print("Put Delta: ",p.putDelta)
         #print("Put Theta: ",p.putTheta)
         netDelta = c.callDelta + p.putDelta
         print("Net Delta: ",netDelta)
+        return netDelta
+
+    def getCallDelta(self,conn, CallPosition, callStrike):
+        # Generate Straddle Symbol Names
+        # self.callSymbol = "NFO:BANKNIFTY" + self.nextExpiryDate() + str(self.bnStrike) + "CE"
+        # self.putSymbol = "NFO:BANKNIFTY" + self.nextExpiryDate() + str(self.bnStrike) + "PE"
+        callSymbol = CallPosition
+        # print("Banknifty Call Instrument: ",self.callSymbol)
+        # print("Banknifty Put Instrument: ",self.putSymbol)
+        positionList = []
+        positionList.append(callSymbol)
+        #print(positionList)
+        #currPrices = conn.quote(positionList)
+        # print(currPrices)
+        callOhlc = conn.ohlc(callSymbol)
+        callLtp = callOhlc[callSymbol]['last_price']
+        # print("Call LTP: ",callLtp)
+        #print("Call LTP: ", callLtp)
+        # Calculate the greeks
+        # claculate the Call volatility first
+        voltyC = mibian.BS([self.bnSpot, callStrike, self.interestRate, self.daysToExpiry()], callPrice=callLtp)
+        # print(voltyC.impliedVolatility)
+        newVoltyC = float("{:.2f}".format(voltyC.impliedVolatility))
+        # print("CallVolatility: ",newVoltyC)
+        # Calculate the put volatility
+        # Calculate the Delta
+        c = mibian.BS([self.bnSpot, callStrike, self.interestRate, self.daysToExpiry()], volatility=newVoltyC)
+        #print("Call Delta: ", c.callDelta)
+        # print("Call Theta: ",c.callTheta)
+        return c.callDelta
+
+    def getPutDelta(self,conn, PutPosition, putStrike):
+        # Generate Straddle Symbol Names
+        # self.callSymbol = "NFO:BANKNIFTY" + self.nextExpiryDate() + str(self.bnStrike) + "CE"
+        # self.putSymbol = "NFO:BANKNIFTY" + self.nextExpiryDate() + str(self.bnStrike) + "PE"
+        putSymbol = PutPosition
+        # print("Banknifty Call Instrument: ",self.callSymbol)
+        # print("Banknifty Put Instrument: ",self.putSymbol)
+        positionList = []
+        positionList.append(putSymbol)
+        #print(positionList)
+        #currPrices = conn.quote(positionList)
+        # print(currPrices)
+        # print("Call LTP: ",callLtp)
+        putOhlc = conn.ohlc(putSymbol)
+        putLtp = putOhlc[putSymbol]['last_price']
+        #print("Put LTP: ", putLtp)
+        # Calculate the greeks
+        # claculate the Call volatility first
+        # Calculate the put volatility
+        voltyP = mibian.BS([self.bnSpot, putStrike, self.interestRate, self.daysToExpiry()], putPrice=putLtp)
+        # print(voltyP.impliedVolatility)
+        newVoltyP = float("{:.2f}".format(voltyP.impliedVolatility))
+        # print("PutVolatility: ",newVoltyP)
+        # Calculate the Delta
+        p = mibian.BS([self.bnSpot, putStrike, self.interestRate, self.daysToExpiry()], volatility=newVoltyP)
+        #print("Put Delta: ", p.putDelta)
+        # print("Put Theta: ",p.putTheta)
+        return p.putDelta
 
 logging.basicConfig(level=logging.DEBUG)
 # print("Calculate Implied Volatity")
