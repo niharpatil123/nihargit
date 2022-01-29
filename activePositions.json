@@ -1,0 +1,1 @@
+{"hedgeOrder": {"callSymbol": "BANKNIFTY2220340000CE", "callStrike": 40000, "callPrice": 0, "putSymbol": "BANKNIFTY2220335000PE", "putStrike": 35000, "putPrice": 0}, "straddleOrder": {"callSymbol": "BANKNIFTY2220337300CE", "callStrike": 37300, "callPrice": 0, "putSymbol": "BANKNIFTY2220338200PE", "putStrike": 38200, "putPrice": 0}}
