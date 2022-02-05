@@ -4,6 +4,7 @@ import undetected_chromedriver as uc
 from datetime import datetime, timedelta, date
 from AccessInitiator import AccessInitiator
 from CalculateGreeks import CalculateGreeks
+from TelegramMessenger import TelegramMessenger
 import sched, schedule
 import logging
 from selenium import webdriver
@@ -107,8 +108,8 @@ def buyHedge():
     print("=========================Inside Hedge Buy=============================")
     calG.getSpot(conn)
     calG.setHedgeStrike()
-    callHedge = calG.bnHStrike + 2500
-    putHedge = calG.bnHStrike - 2500
+    callHedge = calG.bnHStrike + 3000
+    putHedge = calG.bnHStrike - 3000
     callPosition = "NFO:BANKNIFTY" + nextExpiryDate() + str(callHedge) + "CE"
     putPosition = "NFO:BANKNIFTY" + nextExpiryDate() + str(putHedge) + "PE"
     #=============================put order code here
@@ -120,6 +121,8 @@ def buyHedge():
     positionDict["hedgeOrder"]["callStrike"] = callHedge
     positionDict["hedgeOrder"]["putStrike"] = putHedge
     print(positionDict)
+    tm.telegram_sendmsg("Hedge order placed::", "0")
+    tm.telegram_sendmsg("Call Hedge:: " + str(int(callHedge)) + " :::: " + "Put Hedge:: " + str(int(putHedge)), "0")
     setActivePositions(positionDict)
 
 def sellStraddle():
@@ -130,11 +133,11 @@ def sellStraddle():
     strikePrice = calG.setSellStrike(bnSpot)
     #strikePrice = calG.bnStrike
     #Next 2 lines commented temporarily
-    #callPosition = "NFO:BANKNIFTY" + nextExpiryDate() + str(strikePrice) + "CE"
-    #putPosition = "NFO:BANKNIFTY" + nextExpiryDate() + str(strikePrice) + "PE"
-    callPosition = "NFO:BANKNIFTY2220338200CE"
-    putPosition = "NFO:BANKNIFTY2220338200PE"
-    strikePrice = 38200
+    callPosition = "NFO:BANKNIFTY" + nextExpiryDate() + str(strikePrice) + "CE"
+    putPosition = "NFO:BANKNIFTY" + nextExpiryDate() + str(strikePrice) + "PE"
+    #callPosition = "NFO:BANKNIFTY2220338200CE"
+    #putPosition = "NFO:BANKNIFTY2220338200PE"
+    #strikePrice = 38200
     #========================Add order code here
     placeSellOrder(conn, callPosition[4:])
     placeSellOrder(conn, putPosition[4:])
@@ -146,6 +149,7 @@ def sellStraddle():
     positionDict["straddleOrder"]["putStrike"] = strikePrice
     setActivePositions(positionDict)
     print(positionDict)
+    tm.telegram_sendmsg("Straddle order placed::"+str(int(strikePrice)), "0")
 
 def exitOneLeg(conn,tradeSymbol):
     print("Exit One Leg: ",tradeSymbol)
@@ -172,6 +176,7 @@ def enterNewLeg(conn,exitType,existingdelta):
         #Update Dictionary
         positionDict["straddleOrder"]["callSymbol"]= callPosition[4:]
         positionDict["straddleOrder"]["callStrike"] = newStrike
+        tm.telegram_sendmsg("New Leg Entered:: " + callPosition + " : " + str(int(newStrike)), "0")
 
     elif (exitType == "PE"):
         df = getDeltaDataFrame("PE")
@@ -183,25 +188,27 @@ def enterNewLeg(conn,exitType,existingdelta):
         #Update Dictionary
         positionDict["straddleOrder"]["putSymbol"] = putPosition[4:]
         positionDict["straddleOrder"]["putStrike"] = newStrike
+        tm.telegram_sendmsg("New Leg Entered:: " + putPosition + " : " + str(int(newStrike)), "0")
 
     print(positionDict)
     setActivePositions(positionDict)
 
 
 def placeBuyOrder(conn,tradeSymbol):
-    #order = conn.place_order(tradingsymbol=tradeSymbol, quantity=25, exchange=conn.EXCHANGE_NFO,order_type=conn.ORDER_TYPE_MARKET,
-    #                         transaction_type=conn.TRANSACTION_TYPE_BUY,product=conn.PRODUCT_MIS,variety=conn.VARIETY_REGULAR)
+    order = conn.place_order(tradingsymbol=tradeSymbol, quantity=100, exchange=conn.EXCHANGE_NFO,order_type=conn.ORDER_TYPE_MARKET,
+                             transaction_type=conn.TRANSACTION_TYPE_BUY,product=conn.PRODUCT_MIS,variety=conn.VARIETY_REGULAR)
     print("Buy Order Successfully Placed for::::",tradeSymbol)
 
 def placeSellOrder(conn,tradeSymbol):
-    #order = conn.place_order(tradingsymbol=tradeSymbol, quantity=25, exchange=conn.EXCHANGE_NFO,order_type=conn.ORDER_TYPE_MARKET,
-    #                         transaction_type=conn.TRANSACTION_TYPE_SELL,product=conn.PRODUCT_MIS,variety=conn.VARIETY_REGULAR)
+    order = conn.place_order(tradingsymbol=tradeSymbol, quantity=100, exchange=conn.EXCHANGE_NFO,order_type=conn.ORDER_TYPE_MARKET,
+                             transaction_type=conn.TRANSACTION_TYPE_SELL,product=conn.PRODUCT_MIS,variety=conn.VARIETY_REGULAR)
     print("Sell Order Successfully Placed for::::",tradeSymbol)
 
 def checkIn5Mins():
     print("========================Inside check delta each 5 mins==========================")
     startTime= datetime.now()
-    print("Time: ",datetime.now().hour,datetime.now().minute,datetime.now().second)
+    timeNow = str(datetime.now().hour) + ":" + str(datetime.now().minute) + ":" + str(datetime.now().second)
+    print("Time: ", timeNow)
     #get Open Positions.
     #CallPosition = "NFO:BANKNIFTY2220337600CE"
     #PutPosition = "NFO:BANKNIFTY2220337600PE"
@@ -216,16 +223,21 @@ def checkIn5Mins():
     PutStrike = positionDict["straddleOrder"]["putStrike"]
     calG.getSpot(conn)
     #calG.setSellStrike()
-    netDelta = calG.getNetDelta(conn,CallPosition,CallStrike,PutPosition,PutStrike)
+    #Net Delta is commented as delta is individually calculated
+    #netDelta = calG.getNetDelta(conn,CallPosition,CallStrike,PutPosition,PutStrike)
     callDelta = calG.getCallDelta(conn, CallPosition, CallStrike)
     putDelta = calG.getPutDelta(conn, PutPosition, PutStrike)
     callDeltaRound = callDelta*1000
     putDeltaRound = putDelta*1000
     print("Call Delta: ", callDeltaRound, "Put Delta: ", putDeltaRound)
+    print("Net Delta:",callDeltaRound + putDeltaRound)
+    tm.telegram_sendmsg("CallPosition:: " + CallPosition + " : " + str(int(callDeltaRound)) + " ::::PutPosition:: " + PutPosition + " : " + str(int(putDeltaRound)), "0")
+    tm.telegram_sendmsg("Net Delta:: " + str(int(callDeltaRound + putDeltaRound)), "0")
     callPosStatus = True
     putPosStatus = True
     if (abs(callDeltaRound + putDeltaRound) > 200):
         print("Delta Mismatch")
+        tm.telegram_sendmsg("Delta Mismatch:: ", "0")
         if (abs(callDeltaRound) > 700):
             # exit CALL
             print("-------------Call Delta more than 700----------")
@@ -263,11 +275,13 @@ def checkIn5Mins():
             # Condition for 650to 700...PENDING
             print("-------------Call Delta between 650 and 700----------")
             exitOneLeg(conn, CallSymbol)
+            callPosStatus = False
 
         elif (abs(putDeltaRound) > 650 and abs(putDeltaRound) < 700):
             # Condition for 650to 700...PENDING
             print("-------------Put Delta between 650 and 700----------")
             exitOneLeg(conn, PutSymbol)
+            putPosStatus = False
 
     #=================EXIT operations completed==========================
     if (callPosStatus == False and putPosStatus == False):
@@ -284,27 +298,28 @@ def checkIn5Mins():
     print("Check Every 5 Minutes Completed::::",endTime-startTime)
 
 def checkDelta():
-    schedule.every(1).minutes.do(checkIn5Mins)
+    schedule.every(5).minutes.do(checkIn5Mins)
 
 
 ai = AccessInitiator()
 #accessToken = ai.getAccessToken()
-accessToken = "ppIj55RjlhXlX0mKKc31B4kFfZOSUlvG"
+accessToken = "8lNI7HM6eiMH54mJhDJBLq32Yc41fPZK"
 print(accessToken)
 api_key = ai.api_key
 print(api_key)
 conn = KiteConnect(api_key=api_key)
 conn.set_access_token(accessToken)
-print("Start Time: ",datetime.now().hour,datetime.now().minute,datetime.now().second)
+print("Start Time: ",datetime.now().hour,":",datetime.now().minute,":",datetime.now().second)
 calG = CalculateGreeks(conn)
+tm = TelegramMessenger()
 #Initialize the dictionaties
 #hedgeOrder = {"callSymbol":0,"callStrike":0,"callPrice":0,"putSymbol":0,"putStrike":0,"putPrice":0}
 #straddleOrder = {"callSymbol":0,"callStrike":0,"callPrice":0,"putSymbol":0,"putStrike":0,"putPrice":0}
 positionDict = {'hedgeOrder': {'callSymbol': 0, 'callStrike': 0, 'callPrice': 0, 'putSymbol': 0, 'putStrike': 0, 'putPrice': 0}, 'straddleOrder': {'callSymbol': 0, 'callStrike': 0, 'callPrice': 0, 'putSymbol': 0, 'putStrike': 0, 'putPrice': 0}}
 
-schedule.every().day.at("19:17").do(buyHedge)
-schedule.every().day.at("19:17").do(sellStraddle)
-schedule.every().day.at("19:17:30").do(checkDelta)
+schedule.every().day.at("09:17").do(buyHedge)
+schedule.every().day.at("09:29").do(sellStraddle)
+schedule.every().day.at("09:30").do(checkDelta)
 
 #now = datetime.now()
 #startTime = now.replace(hour=19, minute=7, second=0)
