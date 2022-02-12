@@ -1,0 +1,12 @@
+{
+	"time": {
+		"leg1": {"starttime": "09:24", "sltime": "09:24:10", "exittime": "12:30"},
+		"leg2": {"starttime": "13:54", "sltime": "13:56:10", "exittime": "14:55"},
+		"leg3": {"starttime": "15:00", "sltime": "15:00:10", "exittime": "15:24"}
+	},
+	"pct": {
+		"leg1pct": {"Friday": 10, "Monday": 20, "Tuesday": 20, "Wednesday": 20, "Thursday": 70},
+		"leg2pct": {"Friday": 20, "Monday": 30, "Tuesday": 30, "Wednesday": 40, "Thursday": 80},
+		"leg3pct": {"Friday": 10, "Monday": 10, "Tuesday": 10, "Wednesday": 10, "Thursday": 80}
+	}
+}
