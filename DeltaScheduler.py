@@ -102,7 +102,36 @@ def getActivePositions():
     #print(positionList['hedgeOrder']['callSymbol'])
     return positionList
 
+def exitHedge():
+    print("===============Exit Hedge===============")
+    positionList = conn.positions()
+    #file = open("F:\\PycharmProject\\position2.json","r")
+    #positionList = json.load(file)
+    for i in positionList['day']:
+        if (i['quantity'] > 0 ):
+            placeSellOrder(conn, i['tradingsymbol'])
 
+def exitStraddle():
+    print("======================Exit Straddle========================")
+    positionList = conn.positions()
+    #file = open("F:\\PycharmProject\\position2.json","r")
+    #positionList = json.load(file)
+    for i in positionList['day']:
+        print(i['tradingsymbol'],"::::",i['quantity'])
+        if(i['quantity'] < 0 ):
+            placeBuyOrder(conn, i['tradingsymbol'])
+
+def exitAllPositions():
+    print("====================Exit All Positions===========================")
+    positionList = conn.positions()
+    #file = open("F:\\PycharmProject\\position2.json","r")
+    #positionList = json.load(file)
+    for i in positionList['day']:
+        print(i['tradingsymbol'],"::::",i['quantity'])
+        if(i['quantity'] < 0 ):
+            placeBuyOrder(conn, i['tradingsymbol'])
+        elif (i['quantity'] > 0 ):
+            placeSellOrder(conn, i['tradingsymbol'])
 
 def buyHedge():
     print("=========================Inside Hedge Buy=============================")
@@ -193,14 +222,55 @@ def enterNewLeg(conn,exitType,existingdelta):
     print(positionDict)
     setActivePositions(positionDict)
 
+def getPNL():
+    margin = conn.margins()
+    realised = margin['equity']['utilised']['m2m_realised']
+    unrealised = margin['equity']['utilised']['m2m_unrealised']
+    total = realised + unrealised
+    return total
+
+def getPNL2():
+    positionList = conn.positions()
+    pnl = 0
+    for i in positionList['day']:
+        pnl = pnl + i['pnl']
+    return pnl
+
+def checkPNL(maxProfit,trailingSL):
+
+    minProfit = trailSLConfig["minProfit"]
+    maxProfit = trailSLConfig["maxProfit"]
+    trailingSL = trailSLConfig["trailingSL"]
+    #Check if profit now is max of the day
+    totalPNL=getPNL2()
+    print("Total PNL:",totalPNL," maxProfit: ",maxProfit,"  Trailing SL: ",trailingSL)
+    if(totalPNL > maxProfit):
+        maxProfit = totalPNL
+    tm.telegram_sendmsg("Net Profit::: \\" + str(int(totalPNL)) + "Max Profit::: \\" + str(int(maxProfit)), "0")
+    #if profit reaches a target, trail SL
+    if (maxProfit > minProfit):
+        trailingSL = 0
+
+    trailSLConfig["maxProfit"] = maxProfit
+    trailSLConfig["trailingSL"] = trailingSL
+
+    if(totalPNL < trailingSL):
+        #exitAllPositions()
+        print("Exit All Positions")
+        quit()
+
+    if(totalPNL > 25000):
+        #exitAllPositions()
+        print("Exit All Positions")
+        quit()
 
 def placeBuyOrder(conn,tradeSymbol):
-    order = conn.place_order(tradingsymbol=tradeSymbol, quantity=100, exchange=conn.EXCHANGE_NFO,order_type=conn.ORDER_TYPE_MARKET,
+    order = conn.place_order(tradingsymbol=tradeSymbol, quantity=150, exchange=conn.EXCHANGE_NFO,order_type=conn.ORDER_TYPE_MARKET,
                              transaction_type=conn.TRANSACTION_TYPE_BUY,product=conn.PRODUCT_MIS,variety=conn.VARIETY_REGULAR)
     print("Buy Order Successfully Placed for::::",tradeSymbol)
 
 def placeSellOrder(conn,tradeSymbol):
-    order = conn.place_order(tradingsymbol=tradeSymbol, quantity=100, exchange=conn.EXCHANGE_NFO,order_type=conn.ORDER_TYPE_MARKET,
+    order = conn.place_order(tradingsymbol=tradeSymbol, quantity=150, exchange=conn.EXCHANGE_NFO,order_type=conn.ORDER_TYPE_MARKET,
                              transaction_type=conn.TRANSACTION_TYPE_SELL,product=conn.PRODUCT_MIS,variety=conn.VARIETY_REGULAR)
     print("Sell Order Successfully Placed for::::",tradeSymbol)
 
@@ -231,8 +301,10 @@ def checkIn5Mins():
     putDeltaRound = putDelta*1000
     print("Call Delta: ", callDeltaRound, "Put Delta: ", putDeltaRound)
     print("Net Delta:",callDeltaRound + putDeltaRound)
-    tm.telegram_sendmsg("CallPosition:: " + CallPosition + " : " + str(int(callDeltaRound)) + " ::::PutPosition:: " + PutPosition + " : " + str(int(putDeltaRound)), "0")
-    tm.telegram_sendmsg("Net Delta:: " + str(int(callDeltaRound + putDeltaRound)), "0")
+    totalPNL = getPNL2()
+    tm.telegram_sendmsg("CallPosition:: " + str(CallStrike) + " : \\" + str(int(callDeltaRound)) + " ::::PutPosition:: " + str(PutStrike) + " : \\" + str(int(putDeltaRound)), "0")
+    tm.telegram_sendmsg("Net Delta:: \\" + str(int(callDeltaRound + putDeltaRound)), "0")
+    #tm.telegram_sendmsg("Net Profit::: \\" + str(int(totalPNL)), "0")
     callPosStatus = True
     putPosStatus = True
     if (abs(callDeltaRound + putDeltaRound) > 200):
@@ -299,14 +371,16 @@ def checkIn5Mins():
 
 def checkDelta():
     schedule.every(5).minutes.do(checkIn5Mins)
+    #schedule.every(1).minutes.do(checkPNL)
 
-
+#==========================Main Starts here==============================
 ai = AccessInitiator()
 #accessToken = ai.getAccessToken()
-accessToken = "8lNI7HM6eiMH54mJhDJBLq32Yc41fPZK"
+accessToken = "qH2YZXHdh2luFqC6D2VWI3e07pVxA5cb"
 print(accessToken)
 api_key = ai.api_key
 print(api_key)
+
 conn = KiteConnect(api_key=api_key)
 conn.set_access_token(accessToken)
 print("Start Time: ",datetime.now().hour,":",datetime.now().minute,":",datetime.now().second)
@@ -316,10 +390,13 @@ tm = TelegramMessenger()
 #hedgeOrder = {"callSymbol":0,"callStrike":0,"callPrice":0,"putSymbol":0,"putStrike":0,"putPrice":0}
 #straddleOrder = {"callSymbol":0,"callStrike":0,"callPrice":0,"putSymbol":0,"putStrike":0,"putPrice":0}
 positionDict = {'hedgeOrder': {'callSymbol': 0, 'callStrike': 0, 'callPrice': 0, 'putSymbol': 0, 'putStrike': 0, 'putPrice': 0}, 'straddleOrder': {'callSymbol': 0, 'callStrike': 0, 'callPrice': 0, 'putSymbol': 0, 'putStrike': 0, 'putPrice': 0}}
+trailSLConfig = {'minProfit':10000,'trailingSL':-20000,'maxProfit':0,'maxTarget':20000}
 
 schedule.every().day.at("09:17").do(buyHedge)
 schedule.every().day.at("09:29").do(sellStraddle)
 schedule.every().day.at("09:30").do(checkDelta)
+schedule.every().day.at("15:24:30").do(exitStraddle)
+schedule.every().day.at("15:24:40").do(exitHedge)
 
 #now = datetime.now()
 #startTime = now.replace(hour=19, minute=7, second=0)
