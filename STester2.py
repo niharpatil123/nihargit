@@ -112,20 +112,57 @@ def getPNL():
     return total
 
 def getPNL2():
-    positionList = conn.positions()
+    #positionList = conn.positions()
+    file = open("F:\\PycharmProject\\position2.json","r")
+    positionList = json.load(file)
     pnl = 0
     for i in positionList['day']:
-        pnl = pnl + i['pnl']
-        print(pnl)
+        pnl = pnl + i['value']
+        #print(pnl)
     print(pnl)
     return pnl
 
 def getPNL3():
-    positionList = conn.positions()
+    #positionList = conn.positions()
+    file = open("F:\\PycharmProject\\position2.json","r")
+    positionList = json.load(file)
     pnl = 0
     for i in positionList['day']:
         pnl = pnl + i['m2m']
-        print(pnl)
+        #print(pnl)
+    print(pnl)
+    return pnl
+
+def getPNL4():
+    #positionList = conn.positions()
+    file = open("F:\\PycharmProject\\position2.json","r")
+    positionList = json.load(file)
+    pnl = 0
+    for i in positionList['day']:
+        pnl = pnl + i['unrealised'] + i['realised']
+    print(pnl)
+    return pnl
+
+def getPNL5():
+    #positionList = conn.positions()
+    file = open("F:\\PycharmProject\\position2.json","r")
+    positionList = json.load(file)
+    pnl = 0
+    sellpnl = 0
+    buypnl = 0
+    closepnl = 0
+    for i in positionList['day']:
+        print(i['tradingsymbol'], ":::", i['quantity'],":::",i['last_price'],":::",i['sell_price'],":::",i['buy_price'])
+        if (i['quantity'] < 0):
+            sellpnl = sellpnl + (i['sell_price'] - i['last_price'])*i['quantity']/2
+            print(sellpnl)
+        elif (i['quantity'] > 0):
+            buypnl = buypnl + (i['last_price'] - i['buy_price'])*i['quantity']/2
+            print(buypnl)
+        elif (i['quantity'] == 0):
+            closepnl = closepnl + (i['sell_price'] - i['buy_price']) * i['quantity'] / 2
+            print(closepnl)
+    pnl = sellpnl + buypnl
     print(pnl)
     return pnl
 
@@ -181,10 +218,11 @@ accessToken = "164u6MGyvrCwAA3z2j1h8kNjureyjBqt"
 print(accessToken)
 api_key = "xyipj2fx4akxggck"
 print(api_key)
-conn = KiteConnect(api_key=api_key)
-conn.set_access_token(accessToken)
+conn = "ABC"
+#conn = KiteConnect(api_key=api_key)
+#conn.set_access_token(accessToken)
 print("Start Time: ",datetime.now().hour,datetime.now().minute,datetime.now().second)
-calG = CalculateGreeks(conn)
+#calG = CalculateGreeks(conn)
 positionDict = {'hedgeOrder': {'callSymbol': 0, 'callStrike': 0, 'callPrice': 0, 'putSymbol': 0, 'putStrike': 0, 'putPrice': 0}, 'straddleOrder': {'callSymbol': 0, 'callStrike': 0, 'callPrice': 0, 'putSymbol': 0, 'putStrike': 0, 'putPrice': 0}}
 positionDict["straddleOrder"]["callSymbol"]  = "NFO:BANKNIFTY2220338800CE"
 positionDict["straddleOrder"]["putSymbol"] = "NFO:BANKNIFTY2220338800PE"
@@ -203,20 +241,23 @@ positionList.append(positionDict["straddleOrder"]["putSymbol"])
 #print(currPrices[positionDict["straddleOrder"]["putSymbol"]]["last_price"])
     #print(conn.margins()['equity']['utilised']['m2m_realised'])
     #print(conn.margins())
-print(conn.positions())
+#print(conn.positions())
 #number = 108.925
 #a = round(0.05 * round(number/0.05),2)
 #print(a)
 #b = a*(1+80/100)
 #print(b)
-#total = getPNL2()
-#print(total)
+total = getPNL2()
+total = getPNL3()
+total = getPNL4()
+total = getPNL5()
+print(total)
 maxProfit = 0
 trailingSL = -20
 trailSLConfig = {"minProfit":10,"trailingSL":-20,"maxProfit":0}
 print(trailSLConfig)
 #schedule.every(4).seconds.do(getPNL3)
-cancelSLOrders()
+#cancelSLOrders()
 #while True:
     #while (datetime.now() > startTime and datetime.now() < endTime):
     #schedule.run_pending()
