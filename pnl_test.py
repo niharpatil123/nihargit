@@ -24,4 +24,4 @@ def getPnl():
             # print(round(closepnl))
     totalPnl = postionPNL + hedgePNL + realizedPNL
     print(round(totalPnl))
-    # return toalPnl
+    # return totalPnl
